@@ -34,7 +34,7 @@ namespace Executor {
         extern map<uint32_t, Job *> jobsBuffer;
     }
 
-    Job *issueJob(Job *job);
-    uint32_t setConcurrency(uint32_t n);
-    Job *stop(uint32_t jobId);
+    void issueJob(int sock, Job *job);
+    void setConcurrency(int sock, uint32_t n);
+    void stop(int sock, uint32_t jobId);
 }

@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "executor.hpp"
+#include "respondent.hpp"
 #include "sync.hpp"
 
 using std::map;
@@ -58,7 +59,7 @@ map<uint32_t, Job *> Executor::internal::jobsBuffer;
 
 // returns job with modified job Id back
 // calls respondent to avoid races from workers
-Job *Executor::issueJob(Job *job) {
+void Executor::issueJob(int sock, Job *job) {
     using namespace Executor::internal;
 
     pthread_mutex_lock(&Mutex::jobBufferSize);
@@ -76,34 +77,32 @@ Job *Executor::issueJob(Job *job) {
     Executor::internal::jobsBuffer[incJobId] = job;
     incJobId++;
 
-
+    Respondent::issueJob(sock, job);
     
     pthread_mutex_unlock(&Mutex::jobId);
     pthread_mutex_unlock(&Mutex::jobBuffer);
 
     pthread_mutex_unlock(&Mutex::jobBufferSize);
-
-    return job;
 }
 
 
 // returns n back
-uint32_t Executor::setConcurrency(uint32_t n) {
+void Executor::setConcurrency(int sock, uint32_t n) {
     using namespace Executor::internal;
 
     pthread_mutex_lock(&Mutex::concurrency);
 
     concurrencyLevel = n;
-    // broadcast to workers...?
+    Respondent::setConcurrency(sock, n);
 
     pthread_mutex_unlock(&Mutex::concurrency);
-
-    return n;
+    
+    // broadcast to workers...?
 }
 
 // nullptr on failure
 // removed Job on success
-Job *Executor::stop(uint32_t jobId) {
+void Executor::stop(int sock, uint32_t jobId) {
     using namespace Executor::internal;
     Job *removed;
 
@@ -111,17 +110,18 @@ Job *Executor::stop(uint32_t jobId) {
 
     auto ptr = jobsBuffer.find(jobId);
     if (ptr == jobsBuffer.end()) {
-        pthread_mutex_unlock(&Mutex::jobBuffer); // not found, unlock
-        return nullptr;
+        Respondent::stop(sock, jobId, false);
+    } else {
+        // move job before removing it from map
+        removed = new Job { std::move(*ptr->second) };
+        jobsBuffer.erase(ptr);
+
+        Respondent::stop(sock, jobId, true);
+
+        delete removed;
     }
 
-    // move job before removing it from map
-    removed = new Job { std::move(*ptr->second) };
-    jobsBuffer.erase(ptr);
-
-    // broadcast to commanders...?
-
     pthread_mutex_unlock(&Mutex::jobBuffer);
-
-    return removed;
+        
+    // broadcast to commanders...?
 }

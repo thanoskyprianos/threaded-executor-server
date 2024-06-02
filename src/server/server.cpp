@@ -78,11 +78,7 @@ void *commanderRoutine(void *arg) {
                 break;
             }
 
-            Executor::issueJob(j);
-            
-            //DEL_THIS 
-            cerr << "Issued job: " << j->triplet() << endl;
-
+            Executor::issueJob(sock, j);
             break;
         case SET_CONCURRENCY:
             if((conc = Fetcher::setConcurrency(sock)) == 0) {
@@ -90,7 +86,7 @@ void *commanderRoutine(void *arg) {
                 break;
             }
 
-            Executor::setConcurrency(conc);
+            Executor::setConcurrency(sock, conc);
 
             //DEL_THIS
             cerr << "Set concurrency to: " << Executor::internal::concurrencyLevel << endl;
@@ -102,10 +98,7 @@ void *commanderRoutine(void *arg) {
                 break;
             }
 
-            Executor::stop(jobId);
-            
-            cerr << "Removed job: " << j->triplet() << endl;
-
+            Executor::stop(sock, jobId);
             break;
         case POLL_JOBS:
             // Jobs::poll(sock);
