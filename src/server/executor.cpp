@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "jobs.hpp"
+#include "executor.hpp"
 #include "sync.hpp"
 
 using std::map;
@@ -19,7 +19,7 @@ using std::ostream_iterator;
 using std::string;
 using std::stringstream;
 using std::vector;
-using Jobs::Job;
+using Executor::Job;
 
 // DELETE LATER
 #include <iostream>
@@ -51,13 +51,15 @@ string Job::triplet() const {
     return res.str();
 }
 
-uint32_t Jobs::internal::incJobId = 1;
-uint32_t Jobs::internal::concurrencyLevel = 1;
-size_t Jobs::internal::bufferSize = 0; // re-assign it on main !
-map<uint32_t, Job *> Jobs::internal::jobsBuffer;
+uint32_t Executor::internal::incJobId = 1;
+uint32_t Executor::internal::concurrencyLevel = 1;
+size_t Executor::internal::bufferSize = 0; // re-assign it on main !
+map<uint32_t, Job *> Executor::internal::jobsBuffer;
 
-void Jobs::issueJob(Job *job) {
-    using namespace Jobs::internal;
+// returns job with modified job Id back
+// calls respondent to avoid races from workers
+Job *Executor::issueJob(Job *job) {
+    using namespace Executor::internal;
 
     pthread_mutex_lock(&Mutex::jobBufferSize);
         
@@ -71,54 +73,55 @@ void Jobs::issueJob(Job *job) {
     pthread_mutex_lock(&Mutex::jobBuffer);
 
     job->setJobId(incJobId);
-    Jobs::internal::jobsBuffer[incJobId] = job;
+    Executor::internal::jobsBuffer[incJobId] = job;
     incJobId++;
+
+
     
     pthread_mutex_unlock(&Mutex::jobId);
     pthread_mutex_unlock(&Mutex::jobBuffer);
 
     pthread_mutex_unlock(&Mutex::jobBufferSize);
+
+    return job;
 }
 
-void Jobs::setConcurrency(uint32_t n) {
-    using namespace Jobs::internal;
+
+// returns n back
+uint32_t Executor::setConcurrency(uint32_t n) {
+    using namespace Executor::internal;
 
     pthread_mutex_lock(&Mutex::concurrency);
 
     concurrencyLevel = n;
-    // maybe broadcast to workers...?
+    // broadcast to workers...?
 
     pthread_mutex_unlock(&Mutex::concurrency);
+
+    return n;
 }
 
-// // false -> not found
-// // true -> found and removed
-// bool Jobs::stop(int jobId) {
-//     using namespace Jobs::internal;
+// nullptr on failure
+// removed Job on success
+Job *Executor::stop(uint32_t jobId) {
+    using namespace Executor::internal;
+    Job *removed;
 
-//     auto ptr = jobsBuffer.find(jobId);
-//     if (ptr != jobsBuffer.end()) {
-//         jobsBuffer.erase(ptr);
-//         return true;
-//     }
+    pthread_mutex_lock(&Mutex::jobBuffer);
 
-//     return false;
-// }
+    auto ptr = jobsBuffer.find(jobId);
+    if (ptr == jobsBuffer.end()) {
+        pthread_mutex_unlock(&Mutex::jobBuffer); // not found, unlock
+        return nullptr;
+    }
 
-// // false -> error while writing
-// // true -> success
-// bool Jobs::poll(int fd) {
-//     using namespace Jobs::internal;
+    // move job before removing it from map
+    removed = new Job { std::move(*ptr->second) };
+    jobsBuffer.erase(ptr);
 
-//     for (const auto &ptr : jobsBuffer) {
-//         string triplet = ptr.second.triplet();
-//         uint32_t len = htonl(triplet.size());
+    // broadcast to commanders...?
 
-//         if (write(fd, &len, sizeof(uint32_t)) == -1 ||
-//             write(fd, triplet.c_str(), len) == -1) {
-//                 return false;
-//         }
-//     }
+    pthread_mutex_unlock(&Mutex::jobBuffer);
 
-//     return true;
-// }
+    return removed;
+}

@@ -8,13 +8,13 @@
 #include <unistd.h>
 
 #include "codes.hpp"
-#include "commands_c.hpp"
+#include "requester.hpp"
 
 using std::cout;
 using std::cerr;
 using std::endl;
 
-bool Commands::internal::headers(int sock, uint32_t headerCode) {
+bool Requester::internal::headers(int sock, uint32_t headerCode) {
     uint32_t toNet = htonl(headerCode);
     if (write(sock, &toNet, sizeof(uint32_t)) == -1) {
         return false;
@@ -23,8 +23,8 @@ bool Commands::internal::headers(int sock, uint32_t headerCode) {
     return true;
 }
 
-bool Commands::issueJob(int sock, int argc, char *argv[]) {
-    using namespace Commands::internal;
+bool Requester::issueJob(int sock, int argc, char *argv[]) {
+    using namespace Requester::internal;
     
     if (!headers(sock, ISSUE_JOB)) {
         return false;
@@ -43,8 +43,8 @@ bool Commands::issueJob(int sock, int argc, char *argv[]) {
     return true;
 }
 
-bool Commands::setConcurrency(int sock, uint32_t n) {
-    using namespace Commands::internal;
+bool Requester::setConcurrency(int sock, uint32_t n) {
+    using namespace Requester::internal;
     
     if (!headers(sock, SET_CONCURRENCY)) {
         return false;
@@ -59,8 +59,8 @@ bool Commands::setConcurrency(int sock, uint32_t n) {
     return true;
 }
 
-bool Commands::stop(int sock, char *jobId) {
-    using namespace Commands::internal;
+bool Requester::stop(int sock, char *jobId) {
+    using namespace Requester::internal;
     
     if (!headers(sock, STOP_JOB)) {
         return false;
@@ -80,8 +80,8 @@ bool Commands::stop(int sock, char *jobId) {
     return true;
 }
 
-bool Commands::poll(int sock) {
-    using namespace Commands::internal;
+bool Requester::poll(int sock) {
+    using namespace Requester::internal;
     
     if (!headers(sock, POLL_JOBS)) {
         return false;
@@ -90,8 +90,8 @@ bool Commands::poll(int sock) {
     return true;
 }
 
-bool Commands::exit(int sock) {
-    using namespace Commands::internal;
+bool Requester::exit(int sock) {
+    using namespace Requester::internal;
     
     if (!headers(sock, EXIT_SERVER)) {
         return false;

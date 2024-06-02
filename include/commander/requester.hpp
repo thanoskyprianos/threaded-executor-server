@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace Commands {
+namespace Requester {
     namespace internal {
         bool headers(int sock, uint32_t headerCode);
     }

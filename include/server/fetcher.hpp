@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-#include "jobs.hpp"
+#include "executor.hpp"
 
-using Jobs::Job;
+using Executor::Job;
 
-namespace Commands {
+namespace Fetcher {
     uint32_t headers(int sock);
     
     Job *issueJob(int sock);

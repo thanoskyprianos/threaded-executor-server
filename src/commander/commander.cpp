@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "codes.hpp"
-#include "commands_c.hpp"
+#include "requester.hpp"
 
 using std::cout;
 using std::cerr;
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 
         sock = connectToServer(address, port);
 
-        if(!Commands::issueJob(sock, argc - 4, argv + 4)) {
+        if(!Requester::issueJob(sock, argc - 4, argv + 4)) {
             cerr << "Error while issuing job" << endl;
             exit_s(sock, PROCCESS_ERROR);
         }
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
         sock = connectToServer(address, port);
 
-        if (!Commands::setConcurrency(sock, concurrency)) {
+        if (!Requester::setConcurrency(sock, concurrency)) {
             cerr << "Error while sending new concurrency" << endl;
             exit_s(sock, PROCCESS_ERROR);
         } 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
 
         sock = connectToServer(address, port);
 
-        if(!Commands::stop(sock, argv[4])) {
+        if(!Requester::stop(sock, argv[4])) {
             cerr << "Error while sending job ID" << endl;
             exit_s(sock, PROCCESS_ERROR);
         }
@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv[3], "poll")) {
         sock = connectToServer(address, port);
 
-        if(!Commands::poll(sock)) {
+        if(!Requester::poll(sock)) {
             cerr << "Error while sending poll command" << endl;
             exit_s(sock, PROCCESS_ERROR);
         }
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
     else if (!strcmp(argv[3], "exit")) {
         sock = connectToServer(address, port);
 
-        if(!Commands::exit(sock)) {
+        if(!Requester::exit(sock)) {
             cerr << "Error while sending exit command" << endl;
             exit_s(sock, PROCCESS_ERROR);
         }

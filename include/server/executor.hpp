@@ -9,7 +9,7 @@ using std::map;
 using std::string;
 using std::vector;
 
-namespace Jobs {
+namespace Executor {
     struct Job {
     private:
         uint32_t jobId;
@@ -34,8 +34,7 @@ namespace Jobs {
         extern map<uint32_t, Job *> jobsBuffer;
     }
 
-    void issueJob(Job *job);
-    void setConcurrency(uint32_t n);
-    bool stop(uint32_t jobId);
-    bool poll(int fd);
+    Job *issueJob(Job *job);
+    uint32_t setConcurrency(uint32_t n);
+    Job *stop(uint32_t jobId);
 }

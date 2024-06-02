@@ -13,14 +13,14 @@
 #include <unistd.h>
 
 #include "codes.hpp"
-#include "commands_s.hpp"
+#include "executor.hpp"
+#include "fetcher.hpp"
 #include "sync.hpp"
-#include "jobs.hpp"
 
 using std::cout;
 using std::cerr;
 using std::endl;
-using Jobs::Job;
+using Executor::Job;
 
 static bool running = true;
 pthread_t *workers;
@@ -70,41 +70,46 @@ void *commanderRoutine(void *arg) {
     Job *j;
     uint32_t conc, jobId;
 
-    uint32_t command = Commands::headers(sock);
+    uint32_t command = Fetcher::headers(sock);
     switch(command) {
         case ISSUE_JOB:
-            if ((j = Commands::issueJob(sock)) == nullptr) {
+            if ((j = Fetcher::issueJob(sock)) == nullptr) {
                 close(sock);
-                return nullptr;
+                break;
             }
 
-            Jobs::issueJob(j);
+            Executor::issueJob(j);
             
             //DEL_THIS 
             cerr << "Issued job: " << j->triplet() << endl;
 
             break;
         case SET_CONCURRENCY:
-            if((conc = Commands::setConcurrency(sock)) == 0) {
+            if((conc = Fetcher::setConcurrency(sock)) == 0) {
                 close(sock);
-                return nullptr;
+                break;
             }
 
-            Jobs::setConcurrency(conc);
+            Executor::setConcurrency(conc);
 
             //DEL_THIS
-            cerr << "Set concurrency to: " << Jobs::internal::concurrencyLevel << endl;
+            cerr << "Set concurrency to: " << Executor::internal::concurrencyLevel << endl;
 
             break;
-
         case STOP_JOB:
-            if ((jobId = Commands::stop(sock)) == 0) {
+            if ((jobId = Fetcher::stop(sock)) == 0) {
                 close(sock);
-                return nullptr;
+                break;
             }
+
+            Executor::stop(jobId);
+            
+            cerr << "Removed job: " << j->triplet() << endl;
 
             break;
         case POLL_JOBS:
+            // Jobs::poll(sock);
+
             break;
 
         case EXIT_SERVER:
@@ -115,9 +120,6 @@ void *commanderRoutine(void *arg) {
             return nullptr;
             break;
     }
-
-    shutdown(sock, SHUT_RDWR);
-    close(sock);
 
     //DEL_THIS
     cout << "Thread " << pthread_self() << " finished execution" << endl;
@@ -142,7 +144,7 @@ int main(int argc, char *argv[]) {
         exit(VALUE_ERROR);
     }
 
-    Jobs::internal::bufferSize = bufferSize;
+    Executor::internal::bufferSize = bufferSize;
 
     if ((threadPool = atoi(argv[3])) <= 0) {
         cerr << "Thread pool size should be a positive integer. Thread pool size: " << argv[3] << endl;
@@ -182,7 +184,6 @@ int main(int argc, char *argv[]) {
             continue; // wait for other clients
         }
         
-
         if((errorCode = pthread_create(&commander, &attr, &commanderRoutine, (void *)commEndpoint)) != 0) {
             terror((char *)"Error while creating commander thread", errorCode);
             exit(THREAD_ERROR);

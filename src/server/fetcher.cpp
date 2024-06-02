@@ -6,10 +6,10 @@
 #include <unistd.h>
 
 #include "codes.hpp"
-#include "commands_s.hpp"
-#include "jobs.hpp"
+#include "executor.hpp"
+#include "fetcher.hpp"
 
-using Jobs::Job;
+using Executor::Job;
 using std::string;
 using std::vector;
 
@@ -21,7 +21,7 @@ using std::endl;
 
 // returns ERROR_COMMAND on failure
 // `COMMAND` on success
-uint32_t Commands::headers(int sock) {
+uint32_t Fetcher::headers(int sock) {
     uint32_t comm = ERROR_COMMAND;
     if (read(sock, &comm, sizeof(uint32_t)) == -1) {
         return ERROR_COMMAND;
@@ -33,7 +33,7 @@ uint32_t Commands::headers(int sock) {
 
 // nullptr on error
 // new Job on success
-Job *Commands::issueJob(int sock) {
+Job *Fetcher::issueJob(int sock) {
     ssize_t bytes;
     uint32_t len;
     char *buf;
@@ -67,7 +67,7 @@ Job *Commands::issueJob(int sock) {
 
 // 0 on failure
 // new concurrency on success
-uint32_t Commands::setConcurrency(int sock) {
+uint32_t Fetcher::setConcurrency(int sock) {
     uint32_t conc = 0;
 
     if (read(sock, &conc, sizeof(uint32_t)) == -1) {
@@ -80,7 +80,7 @@ uint32_t Commands::setConcurrency(int sock) {
 
 // 0 on failure
 // job Id on success
-uint32_t Commands::stop(int sock) {
+uint32_t Fetcher::stop(int sock) {
     uint32_t jobId = 0;
 
     if (read(sock, &jobId, sizeof(uint32_t)) == -1) {
