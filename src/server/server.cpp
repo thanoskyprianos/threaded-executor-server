@@ -2,12 +2,16 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <ios>
 #include <iostream>
+#include <sstream>
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -15,12 +19,14 @@
 #include "codes.hpp"
 #include "executor.hpp"
 #include "fetcher.hpp"
+#include "respondent.hpp"
 #include "sync.hpp"
 
+using Executor::Job;
 using std::cout;
 using std::cerr;
 using std::endl;
-using Executor::Job;
+using std::stringstream;
 
 static bool running = true;
 pthread_t *workers;
@@ -57,8 +63,88 @@ int createPassiveEndpoint(uint16_t port) {
 }
 
 void *workerRoutine(void *arg) {
+    using namespace Executor::internal;
     (void)arg;
-    // do worker stuff
+
+    Job *j;
+    
+    while (running) {
+        // DEL_THIS
+        cerr << "Thread: " << pthread_self() << " running again." << endl;
+
+        pthread_mutex_lock(&Mutex::jobBuffer);
+        while (jobsBuffer.empty()) {
+            pthread_cond_wait(&Cond::jobBuffer, &Mutex::jobBuffer);
+        }
+        
+        pthread_mutex_lock(&Mutex::concurrency);
+
+        if (runningJobs >= concurrencyLevel) {
+            pthread_mutex_unlock(&Mutex::jobBuffer);
+            pthread_mutex_unlock(&Mutex::concurrency);
+            continue; // try again
+        }
+
+        pthread_mutex_unlock(&Mutex::concurrency);
+
+        j = Executor::next();
+        pthread_mutex_unlock(&Mutex::jobBuffer);
+        
+        if (j == nullptr) {
+            continue;
+        }
+        
+        // let some commander know there's space
+        pthread_cond_broadcast(&Cond::jobBuffer);
+
+        pid_t pid; 
+        int fd;
+        stringstream stream { std::ios_base::app | std::ios_base::out };
+        char * const* argv;
+        
+        switch (pid = fork()) {
+            case -1:
+                close(j->getSocket());
+                break;
+            case 0:
+                stream << OUTPUT_DIR << getpid() << ".output";
+
+                fd = open(stream.str().c_str(), O_WRONLY | O_CREAT, 0644);
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+
+                argv = j->c_array();
+
+                cerr << "Executing: " << j->triplet() << endl;
+
+                if (execvp(argv[0], argv) == -1) {
+                    close(j->getSocket());
+                }
+
+                break;
+            default:
+                pthread_mutex_lock(&Mutex::concurrency);
+                runningJobs++;
+                pthread_mutex_unlock(&Mutex::concurrency);
+                
+                wait(NULL);
+
+                pthread_mutex_lock(&Mutex::concurrency);
+                runningJobs--;
+                pthread_mutex_unlock(&Mutex::concurrency);
+
+                // send output
+                Respondent::jobOutput(j->getSocket(), pid, j);
+
+                stream.str("");
+                stream << OUTPUT_DIR << pid << ".output";
+                remove(stream.str().c_str());
+
+                break;
+        }
+
+        delete j;        
+    }
 
     return nullptr;
 }
@@ -88,9 +174,6 @@ void *commanderRoutine(void *arg) {
 
             Executor::setConcurrency(sock, conc);
 
-            //DEL_THIS
-            cerr << "Set concurrency to: " << Executor::internal::concurrencyLevel << endl;
-
             break;
         case STOP_JOB:
             if ((jobId = Fetcher::stop(sock)) == 0) {
@@ -101,8 +184,7 @@ void *commanderRoutine(void *arg) {
             Executor::stop(sock, jobId);
             break;
         case POLL_JOBS:
-            // Jobs::poll(sock);
-
+            Respondent::poll(sock);
             break;
 
         case EXIT_SERVER:
@@ -114,8 +196,6 @@ void *commanderRoutine(void *arg) {
             break;
     }
 
-    //DEL_THIS
-    cout << "Thread " << pthread_self() << " finished execution" << endl;
     return nullptr;
 }
 
@@ -157,8 +237,8 @@ int main(int argc, char *argv[]) {
     }
 
     // init sync
-    Mutex::init_mtxs({&Mutex::jobBuffer, &Mutex::jobBufferSize, &Mutex::jobId, &Mutex::concurrency});
-    Cond::init_conds({&Cond::jobBuffer, &Cond::jobBufferSize});
+    Mutex::init_mtxs({&Mutex::jobBuffer, &Mutex::concurrency});
+    Cond::init_conds({&Cond::jobBuffer});
     
     // detachable thread attribute
     pthread_attr_t attr;
@@ -193,8 +273,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    Mutex::destroy_mtxs({&Mutex::jobBuffer, &Mutex::jobBufferSize, &Mutex::jobId, &Mutex::concurrency});
-    Cond::destroy_conds({&Cond::jobBuffer, &Cond::jobBufferSize});
+    Mutex::destroy_mtxs({&Mutex::jobBuffer, &Mutex::concurrency});
+    Cond::destroy_conds({&Cond::jobBuffer});
 
     return 0;
 }

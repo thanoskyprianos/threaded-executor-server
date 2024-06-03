@@ -76,7 +76,7 @@ void readFromServer(int sock) {
             exit_s(sock, PROCCESS_ERROR);
         }
 
-        cout << buf << endl;
+        cout << buf;
         delete[] buf;
     }
 }

@@ -1,4 +1,8 @@
-test
+.vscode
 bin/*
 build/*
-.vscode
+output/
+test/
+main
+main.c
+test.sh

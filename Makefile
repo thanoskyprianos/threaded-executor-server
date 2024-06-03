@@ -3,6 +3,7 @@ FLAGS 	:= -g3 -Wall -Werror -Wextra -Wno-maybe-uninitialized -I ./include
 LFLAGS  := -lpthread
 
 EXEC_L  :=  ./bin
+OUTPUT	:=  ./output
 
 EXEC_C	:=  $(EXEC_L)/jobCommander
 SRC_C 	:= 	./src/commander
@@ -20,7 +21,7 @@ INCL_S	:=	-I ./include/server
 
 .PHONY: all clean test
 
-all: $(EXEC_C) $(EXEC_S)
+all: $(EXEC_C) $(EXEC_S) | $(OUTPUT)
 
 # commander
 
@@ -50,5 +51,8 @@ $(BUILD_C):
 $(BUILD_S):
 	mkdir -p $@
 
+$(OUTPUT):
+	mkdir -p $@
+
 clean:
-	rm -rf $(EXEC_L)/* $(BUILD_C)/* $(BUILD_S)/*
+	rm -rf $(EXEC_L)/* $(BUILD_C)/* $(BUILD_S)/* $(OUTPUT)/*

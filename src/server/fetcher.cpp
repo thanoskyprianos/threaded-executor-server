@@ -13,12 +13,6 @@ using Executor::Job;
 using std::string;
 using std::vector;
 
-// DELETE LATER
-#include <iostream>
-using std::cerr;
-using std::endl;
-// DELETE LATER
-
 // returns ERROR_COMMAND on failure
 // `COMMAND` on success
 uint32_t Fetcher::headers(int sock) {
@@ -55,8 +49,6 @@ Job *Fetcher::issueJob(int sock) {
 
         string arg { buf };
         args.push_back(arg);
-
-        cerr << "Token: " << arg << endl;
 
         delete[] buf;
     }
