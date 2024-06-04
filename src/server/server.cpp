@@ -32,7 +32,8 @@ static pthread_t *workers;
 
 // used in termination
 static pthread_t main_thread;
-static int threadPoolSize;
+static int threadPool = 0;
+static int exitSock = -1;
 
 inline void terror(char *errorStr, int errorCode) {
     cerr << errorStr << ((errorStr != nullptr) ? ":" : "") << strerror(errorCode) << endl;
@@ -196,6 +197,9 @@ void *commanderRoutine(void *arg) {
         case EXIT_SERVER:
             pthread_mutex_lock(&Mutex::runtime);
             Executor::internal::running = false;
+            if (exitSock == -1) {
+                exitSock = sock;
+            }
             pthread_mutex_unlock(&Mutex::runtime);
 
             pthread_cond_broadcast(&Cond::runtimeWorker);
@@ -214,12 +218,18 @@ void *commanderRoutine(void *arg) {
 }
 
 void terminate (int sig) {
-    (void)sig;
+    // handle exits yourself
+    if (sig != SIGUSR1) {
+        pthread_mutex_lock(&Mutex::runtime);
+        Executor::internal::running = false;
+        pthread_mutex_unlock(&Mutex::runtime);
 
-    cerr << "Recieved signal" << sig << endl;
+        pthread_cond_broadcast(&Cond::runtimeWorker);
+        pthread_cond_broadcast(&Cond::runtimeCommander);
+    }
 
     // join worker threads
-    for (int i = 0; i < threadPoolSize; i++) {
+    for (int i = 0; i < threadPool; i++) {
         int errorCode;
         
         if((errorCode = pthread_join(workers[i], nullptr)) != 0) {
@@ -231,14 +241,18 @@ void terminate (int sig) {
     Mutex::destroy_mtxs({&Mutex::runtime, &Mutex::concurrency});
     Cond::destroy_conds({&Cond::runtimeWorker, &Cond::runtimeCommander});
 
+    // handle remaining queued jobs
+    for (auto &job : Executor::internal::jobsBuffer) {
+        job.second->terminate(true);
+    }
+
+    Respondent::exit(exitSock);
+
     exit(0);
 }
 
 int main(int argc, char *argv[]) {
-    signal(SIGUSR1, terminate);
-    signal(SIGINT, terminate);
-
-    int port = 0, bufferSize = 0, threadPool = 0, passiveEndpoint;
+    int port = 0, passiveEndpoint;
 
     if (argc != 4) {
         cerr << "Usage: " << argv[0] << " [portNum] [bufferSize] [threadPoolSize]" << endl;
@@ -250,19 +264,24 @@ int main(int argc, char *argv[]) {
         exit(VALUE_ERROR);
     }
 
-    if ((bufferSize = atoi(argv[2])) <= 0) {
+    if ((Executor::internal::bufferSize = atoi(argv[2])) <= 0) {
         cerr << "Buffer size should be a positive integer. Buffer size: " << argv[2] << endl;
         exit(VALUE_ERROR);
     }
-
-    Executor::internal::bufferSize = bufferSize;
 
     if ((threadPool = atoi(argv[3])) <= 0) {
         cerr << "Thread pool size should be a positive integer. Thread pool size: " << argv[3] << endl;
         exit(VALUE_ERROR);
     }
 
-    threadPoolSize = threadPool;
+    // exit handling signals
+    struct sigaction act;
+    bzero(&act, sizeof(act));
+    act.sa_handler = terminate;
+    sigfillset(&act.sa_mask);       // ignore all signals when handling
+
+    sigaction(SIGUSR1, &act, NULL); // called by exit
+    sigaction(SIGINT, &act, NULL);  // ctrl + c
 
     passiveEndpoint = createPassiveEndpoint(port);
 
