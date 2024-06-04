@@ -1,4 +1,3 @@
-OUTPUT	:=  ./output
 EXEC_L  :=  ./bin
 SRC_C 	:= 	./src/commander
 BUILD_C	:= 	./build/commander
@@ -21,7 +20,7 @@ OBJS_S	:= 	$(patsubst $(SRC_S)/%.cpp, $(BUILD_S)/%.o, $(SRCS_S))
 
 .PHONY: all clean test
 
-all: $(EXEC_C) $(EXEC_S) | $(OUTPUT)
+all: $(EXEC_C) $(EXEC_S)
 
 # commander
 
@@ -55,4 +54,4 @@ $(OUTPUT):
 	mkdir -p $@
 
 clean:
-	rm -rf $(EXEC_L)/* $(BUILD_C)/* $(BUILD_S)/* $(OUTPUT)/*
+	rm -rf $(EXEC_L)/* $(BUILD_C)/* $(BUILD_S)/*
