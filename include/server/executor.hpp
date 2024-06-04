@@ -1,6 +1,6 @@
 #pragma once
 
-#define OUTPUT_DIR "./output/"
+#define OUTPUT_DIR "/tmp/"
 
 #include <cstdint>
 #include <map>

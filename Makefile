@@ -1,23 +1,23 @@
+OUTPUT	:=  ./output
+EXEC_L  :=  ./bin
+SRC_C 	:= 	./src/commander
+BUILD_C	:= 	./build/commander
+SRC_S 	:= 	./src/server
+BUILD_S	:= 	./build/server
+INCL_S	:=	-I ./include/server
+
 CC		:= g++
 FLAGS 	:= -g3 -Wall -Werror -Wextra -I ./include
 LFLAGS  := -lpthread
 
-EXEC_L  :=  ./bin
-OUTPUT	:=  ./output
-
 EXEC_C	:=  $(EXEC_L)/jobCommander
-SRC_C 	:= 	./src/commander
-BUILD_C	:= 	./build/commander
 SRCS_C	:=	$(wildcard $(SRC_C)/*.cpp)
 OBJS_C	:= 	$(patsubst $(SRC_C)/%.cpp, $(BUILD_C)/%.o, $(SRCS_C))
 INCL_C  := 	-I ./include/commander
 
 EXEC_S	:=  $(EXEC_L)/jobExecutorServer
-SRC_S 	:= 	./src/server
-BUILD_S	:= 	./build/server
 SRCS_S	:=	$(wildcard $(SRC_S)/*.cpp)
 OBJS_S	:= 	$(patsubst $(SRC_S)/%.cpp, $(BUILD_S)/%.o, $(SRCS_S))
-INCL_S	:=	-I ./include/server
 
 .PHONY: all clean test
 
