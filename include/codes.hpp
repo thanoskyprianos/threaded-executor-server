@@ -9,6 +9,7 @@
 #define PROCCESS_ERROR  5   // processing errors (read/write)
 #define THREAD_ERROR    6   // thread related errors
 #define SOCKET_ERROR    7   // socket related errors
+#define EXEC_ERROR      8   // fork/exec error
 
 #define ISSUE_JOB       10
 #define SET_CONCURRENCY 11

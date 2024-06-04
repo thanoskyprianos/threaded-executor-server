@@ -1,5 +1,5 @@
 CC		:= g++
-FLAGS 	:= -g3 -Wall -Werror -Wextra -Wno-maybe-uninitialized -I ./include
+FLAGS 	:= -g3 -Wall -Werror -Wextra -I ./include
 LFLAGS  := -lpthread
 
 EXEC_L  :=  ./bin

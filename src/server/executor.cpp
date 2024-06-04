@@ -24,7 +24,6 @@ using std::stringstream;
 using std::vector;
 using Executor::Job;
 
-
 Job::Job() : jobId(-1), sock(-1) { }
 Job::Job(const vector<string> &&args, int sock) 
     : args(args), sock(sock) { }
@@ -84,15 +83,17 @@ uint32_t Executor::internal::concurrencyLevel = 1;
 size_t Executor::internal::bufferSize = 0; // re-assign it on main !
 map<uint32_t, Job *> Executor::internal::jobsBuffer;
 
+
 // returns job with modified job Id back
 // calls respondent to avoid races from workers
 void Executor::issueJob(int sock, Job *job) {
     using namespace Executor::internal;
 
+    // del
     pthread_mutex_lock(&Mutex::jobBuffer);
         
-    while (jobsBuffer.size() >= bufferSize) {
-        pthread_cond_wait(&Cond::jobBuffer, &Mutex::jobBuffer);
+    while (jobsBuffer.size() == bufferSize) {
+        pthread_cond_wait(&Cond::jobBufferCommander, &Mutex::jobBuffer);
     }
 
     job->setJobId(incJobId);
@@ -103,8 +104,8 @@ void Executor::issueJob(int sock, Job *job) {
     
     pthread_mutex_unlock(&Mutex::jobBuffer);
 
-    // let commanders/workers know they can access the buffer
-    pthread_cond_broadcast(&Cond::jobBuffer);
+    // let workers know they can access the buffer
+    pthread_cond_broadcast(&Cond::jobBufferWorker);
 }
 
 
@@ -140,7 +141,7 @@ void Executor::stop(int sock, uint32_t jobId) {
         pthread_mutex_unlock(&Mutex::jobBuffer);
 
         // let commanders know there is space
-        pthread_cond_signal(&Cond::jobBuffer);
+        pthread_cond_broadcast(&Cond::jobBufferCommander);
 
         removed->terminate(false);
 

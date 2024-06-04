@@ -86,6 +86,7 @@ void Respondent::poll(int sock) {
     shutdown(sock, SHUT_RDWR);
     close(sock);
 }
+    #include <iostream>
 
 void Respondent::jobOutput(int sock, int pid, Job *j) {
     using namespace Respondent::internal;

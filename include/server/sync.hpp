@@ -11,13 +11,12 @@ namespace Mutex {
     extern pthread_mutex_t concurrency;
     extern pthread_mutex_t running;
 
-    void init_mtxs(initializer_list<pthread_mutex_t *> mtxs);
     void destroy_mtxs(initializer_list<pthread_mutex_t *> mtxs);
 }
 
 namespace Cond {
-    extern pthread_cond_t jobBuffer;
+    extern pthread_cond_t jobBufferWorker;
+    extern pthread_cond_t jobBufferCommander;
 
-    void init_conds(initializer_list<pthread_cond_t *> conds);
     void destroy_conds(initializer_list<pthread_cond_t *> conds);
 }

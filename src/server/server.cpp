@@ -29,7 +29,7 @@ using std::endl;
 using std::stringstream;
 
 static bool running = true;
-pthread_t *workers;
+static pthread_t *workers;
 
 inline void terror(char *errorStr, int errorCode) {
     cerr << errorStr << ((errorStr != nullptr) ? ":" : "") << strerror(errorCode) << endl;
@@ -69,38 +69,36 @@ void *workerRoutine(void *arg) {
     Job *j;
     
     while (running) {
-        // DEL_THIS
-        cerr << "Thread: " << pthread_self() << " running again." << endl;
-
         pthread_mutex_lock(&Mutex::jobBuffer);
         while (jobsBuffer.empty()) {
-            pthread_cond_wait(&Cond::jobBuffer, &Mutex::jobBuffer);
+            pthread_cond_wait(&Cond::jobBufferWorker, &Mutex::jobBuffer);
         }
         
         pthread_mutex_lock(&Mutex::concurrency);
 
-        if (runningJobs >= concurrencyLevel) {
+        if (runningJobs == concurrencyLevel) {
             pthread_mutex_unlock(&Mutex::jobBuffer);
             pthread_mutex_unlock(&Mutex::concurrency);
             continue; // try again
         }
 
-        pthread_mutex_unlock(&Mutex::concurrency);
-
         j = Executor::next();
+
         pthread_mutex_unlock(&Mutex::jobBuffer);
+        pthread_mutex_unlock(&Mutex::concurrency);
         
         if (j == nullptr) {
             continue;
         }
-        
-        // let some commander know there's space
-        pthread_cond_broadcast(&Cond::jobBuffer);
+
+        // let commanders know there's space
+        pthread_cond_broadcast(&Cond::jobBufferCommander);
 
         pid_t pid; 
         int fd;
         stringstream stream { std::ios_base::app | std::ios_base::out };
         char * const* argv;
+        int stat;
         
         switch (pid = fork()) {
             case -1:
@@ -115,30 +113,29 @@ void *workerRoutine(void *arg) {
 
                 argv = j->c_array();
 
-                cerr << "Executing: " << j->triplet() << endl;
-
                 if (execvp(argv[0], argv) == -1) {
-                    close(j->getSocket());
+                    j->terminate(false);
                 }
 
-                break;
+                exit(EXEC_ERROR);
             default:
                 pthread_mutex_lock(&Mutex::concurrency);
                 runningJobs++;
                 pthread_mutex_unlock(&Mutex::concurrency);
                 
-                wait(NULL);
-
+                waitpid(pid, &stat, 0);
+               
                 pthread_mutex_lock(&Mutex::concurrency);
                 runningJobs--;
                 pthread_mutex_unlock(&Mutex::concurrency);
 
                 // send output
-                Respondent::jobOutput(j->getSocket(), pid, j);
+                if (WEXITSTATUS(stat) != EXEC_ERROR)
+                    Respondent::jobOutput(j->getSocket(), pid, j);
 
                 stream.str("");
                 stream << OUTPUT_DIR << pid << ".output";
-                remove(stream.str().c_str());
+                unlink(stream.str().c_str());
 
                 break;
         }
@@ -235,10 +232,6 @@ int main(int argc, char *argv[]) {
             exit(THREAD_ERROR);
         }
     }
-
-    // init sync
-    Mutex::init_mtxs({&Mutex::jobBuffer, &Mutex::concurrency});
-    Cond::init_conds({&Cond::jobBuffer});
     
     // detachable thread attribute
     pthread_attr_t attr;
@@ -274,7 +267,7 @@ int main(int argc, char *argv[]) {
     }
 
     Mutex::destroy_mtxs({&Mutex::jobBuffer, &Mutex::concurrency});
-    Cond::destroy_conds({&Cond::jobBuffer});
+    Cond::destroy_conds({&Cond::jobBufferWorker, &Cond::jobBufferCommander});
 
     return 0;
 }
