@@ -34,6 +34,7 @@ namespace Executor {
     };
 
     namespace internal {
+        extern bool running;
         extern uint32_t runningJobs;
         extern uint32_t incJobId;
         extern uint32_t concurrencyLevel;

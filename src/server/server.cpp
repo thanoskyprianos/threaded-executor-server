@@ -28,8 +28,11 @@ using std::cerr;
 using std::endl;
 using std::stringstream;
 
-static bool running = true;
 static pthread_t *workers;
+
+// used in termination
+static pthread_t main_thread;
+static int threadPoolSize;
 
 inline void terror(char *errorStr, int errorCode) {
     cerr << errorStr << ((errorStr != nullptr) ? ":" : "") << strerror(errorCode) << endl;
@@ -68,23 +71,29 @@ void *workerRoutine(void *arg) {
 
     Job *j;
     
-    while (running) {
-        pthread_mutex_lock(&Mutex::jobBuffer);
-        while (jobsBuffer.empty()) {
-            pthread_cond_wait(&Cond::jobBufferWorker, &Mutex::jobBuffer);
+    while (true) {
+        pthread_mutex_lock(&Mutex::runtime);
+
+        while (jobsBuffer.empty() && running) {
+            pthread_cond_wait(&Cond::runtimeWorker, &Mutex::runtime);
+        }
+
+        if (!running) {
+            pthread_mutex_unlock(&Mutex::runtime);
+            break;
         }
         
         pthread_mutex_lock(&Mutex::concurrency);
 
         if (runningJobs == concurrencyLevel) {
-            pthread_mutex_unlock(&Mutex::jobBuffer);
+            pthread_mutex_unlock(&Mutex::runtime);
             pthread_mutex_unlock(&Mutex::concurrency);
             continue; // try again
         }
 
         j = Executor::next();
 
-        pthread_mutex_unlock(&Mutex::jobBuffer);
+        pthread_mutex_unlock(&Mutex::runtime);
         pthread_mutex_unlock(&Mutex::concurrency);
         
         if (j == nullptr) {
@@ -92,7 +101,7 @@ void *workerRoutine(void *arg) {
         }
 
         // let commanders know there's space
-        pthread_cond_broadcast(&Cond::jobBufferCommander);
+        pthread_cond_broadcast(&Cond::runtimeCommander);
 
         pid_t pid; 
         int fd;
@@ -185,6 +194,14 @@ void *commanderRoutine(void *arg) {
             break;
 
         case EXIT_SERVER:
+            pthread_mutex_lock(&Mutex::runtime);
+            Executor::internal::running = false;
+            pthread_mutex_unlock(&Mutex::runtime);
+
+            pthread_cond_broadcast(&Cond::runtimeWorker);
+            pthread_cond_broadcast(&Cond::runtimeCommander);
+
+            pthread_kill(main_thread, SIGUSR1);
             break;
 
         case ERROR_COMMAND:
@@ -196,7 +213,31 @@ void *commanderRoutine(void *arg) {
     return nullptr;
 }
 
+void terminate (int sig) {
+    (void)sig;
+
+    cerr << "Recieved signal" << sig << endl;
+
+    // join worker threads
+    for (int i = 0; i < threadPoolSize; i++) {
+        int errorCode;
+        
+        if((errorCode = pthread_join(workers[i], nullptr)) != 0) {
+            terror((char *)"Error while joining thread", errorCode);
+            exit(THREAD_ERROR);
+        }
+    }
+
+    Mutex::destroy_mtxs({&Mutex::runtime, &Mutex::concurrency});
+    Cond::destroy_conds({&Cond::runtimeWorker, &Cond::runtimeCommander});
+
+    exit(0);
+}
+
 int main(int argc, char *argv[]) {
+    signal(SIGUSR1, terminate);
+    signal(SIGINT, terminate);
+
     int port = 0, bufferSize = 0, threadPool = 0, passiveEndpoint;
 
     if (argc != 4) {
@@ -221,6 +262,8 @@ int main(int argc, char *argv[]) {
         exit(VALUE_ERROR);
     }
 
+    threadPoolSize = threadPool;
+
     passiveEndpoint = createPassiveEndpoint(port);
 
     // create worker threads
@@ -238,7 +281,9 @@ int main(int argc, char *argv[]) {
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-    while (running) {
+    main_thread = pthread_self();
+
+    while (true) {
         int *commEndpoint = new int();
         sockaddr_in client;
         socklen_t clientLen = 0;
@@ -255,19 +300,6 @@ int main(int argc, char *argv[]) {
             exit(THREAD_ERROR);
         }
     }
-
-    // join worker threads
-    for (int i = 0; i < threadPool; i++) {
-        int errorCode;
-        
-        if((errorCode = pthread_join(workers[i], nullptr)) != 0) {
-            terror((char *)"Error while joining thread", errorCode);
-            exit(THREAD_ERROR);
-        }
-    }
-
-    Mutex::destroy_mtxs({&Mutex::jobBuffer, &Mutex::concurrency});
-    Cond::destroy_conds({&Cond::jobBufferWorker, &Cond::jobBufferCommander});
 
     return 0;
 }

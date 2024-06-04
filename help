@@ -1,0 +1,29 @@
+---JOB COMMANDER---
+
+    ./bin/jobCommander [serverName] [portNum] [jobCommanderInputCommands] <args>
+
+    serverName:
+        The hostname that runs the jobExecutorServer
+    
+    portNum:
+        The port the server is listening to
+
+    jobCommanderInputCommands:
+        * issueJob <args>: Issues a new job <args[0], args[1..]>
+        * setConcurrency [N]: Sets concurrency of server to N
+        * stop job_[xx]: Stops queued job with job_[xx] jobId
+        * poll: Polls queued jobs
+        * exit: Terminates server, after running jobs have finished
+
+---JOB EXECUTOR SERVER---
+
+    ./bin/jobExecutorServer [portNum] [bufferSize] [threadPoolSize]
+
+    portNum:
+        The port the server is listening for incoming connections
+
+    bufferSize:
+        The size of the queued jobs buffer
+    
+    threadPoolSize:
+        The number of worker threads

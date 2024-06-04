@@ -18,25 +18,34 @@ EXEC_S	:=  $(EXEC_L)/jobExecutorServer
 SRCS_S	:=	$(wildcard $(SRC_S)/*.cpp)
 OBJS_S	:= 	$(patsubst $(SRC_S)/%.cpp, $(BUILD_S)/%.o, $(SRCS_S))
 
-.PHONY: all clean test
+.PHONY: all clean help
 
 all: $(EXEC_C) $(EXEC_S)
+	@echo
+	@echo 'Finished compiling. Run `make help` for more info'
+
+help:
+	@cat help
 
 # commander
 
 $(EXEC_C): $(OBJS_C) | $(EXEC_L)
-	$(CC) $(FLAGS) $(INCL_C) -o $@ $^
+	@$(CC) $(FLAGS) $(INCL_C) -o $@ $^
+	@echo "Compiled $@"
 
 $(BUILD_C)/%.o: $(SRC_C)/%.cpp | $(BUILD_C)
-	$(CC) $(FLAGS) $(INCL_C) -o $@ -c $^
+	@$(CC) $(FLAGS) $(INCL_C) -o $@ -c $^
+	@echo "Compiled $@"
 
 # server
 
 $(EXEC_S): $(OBJS_S) | $(EXEC_L)
-	$(CC) $(FLAGS) $(INCL_S) -o $@ $^ $(LFLAGS)
+	@$(CC) $(FLAGS) $(INCL_S) -o $@ $^ $(LFLAGS)
+	@echo "Compiled $@"
 
 $(BUILD_S)/%.o: $(SRC_S)/%.cpp | $(BUILD_S)
-	$(CC) $(FLAGS) $(INCL_S) -o $@ -c $^
+	@$(CC) $(FLAGS) $(INCL_S) -o $@ -c $^
+	@echo "Compiled $@"
 
 
 # make directories if they don't exist
@@ -48,9 +57,6 @@ $(BUILD_C):
 	mkdir -p $@
 
 $(BUILD_S):
-	mkdir -p $@
-
-$(OUTPUT):
 	mkdir -p $@
 
 clean:

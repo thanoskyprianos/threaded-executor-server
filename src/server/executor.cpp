@@ -76,7 +76,7 @@ void Job::terminate(bool serverShutdown) {
     close(this->sock);
 }
 
-
+bool Executor::internal::running = true;
 uint32_t Executor::internal::runningJobs = 0;
 uint32_t Executor::internal::incJobId = 1;
 uint32_t Executor::internal::concurrencyLevel = 1;
@@ -90,10 +90,16 @@ void Executor::issueJob(int sock, Job *job) {
     using namespace Executor::internal;
 
     // del
-    pthread_mutex_lock(&Mutex::jobBuffer);
+    pthread_mutex_lock(&Mutex::runtime);
         
-    while (jobsBuffer.size() == bufferSize) {
-        pthread_cond_wait(&Cond::jobBufferCommander, &Mutex::jobBuffer);
+    while (jobsBuffer.size() == bufferSize && running) {
+        pthread_cond_wait(&Cond::runtimeCommander, &Mutex::runtime);
+    }
+
+    if (!running) {
+        job->terminate(true);
+        pthread_mutex_unlock(&Mutex::runtime);
+        return;
     }
 
     job->setJobId(incJobId);
@@ -102,10 +108,10 @@ void Executor::issueJob(int sock, Job *job) {
 
     Respondent::issueJob(sock, job);
     
-    pthread_mutex_unlock(&Mutex::jobBuffer);
+    pthread_mutex_unlock(&Mutex::runtime);
 
     // let workers know they can access the buffer
-    pthread_cond_broadcast(&Cond::jobBufferWorker);
+    pthread_cond_broadcast(&Cond::runtimeWorker);
 }
 
 
@@ -127,21 +133,21 @@ void Executor::stop(int sock, uint32_t jobId) {
     using namespace Executor::internal;
     Job *removed;
 
-    pthread_mutex_lock(&Mutex::jobBuffer);
+    pthread_mutex_lock(&Mutex::runtime);
 
     auto ptr = jobsBuffer.find(jobId);
     if (ptr == jobsBuffer.end()) {
         Respondent::stop(sock, jobId, false);
-        pthread_mutex_unlock(&Mutex::jobBuffer);
+        pthread_mutex_unlock(&Mutex::runtime);
     } else {
         // move job before removing it from map
         removed = new Job { std::move(*ptr->second) };
         jobsBuffer.erase(ptr);
 
-        pthread_mutex_unlock(&Mutex::jobBuffer);
+        pthread_mutex_unlock(&Mutex::runtime);
 
         // let commanders know there is space
-        pthread_cond_broadcast(&Cond::jobBufferCommander);
+        pthread_cond_broadcast(&Cond::runtimeCommander);
 
         removed->terminate(false);
 

@@ -7,16 +7,18 @@
 using std::initializer_list;
 
 namespace Mutex {
-    extern pthread_mutex_t jobBuffer;
+    // used for buffer checking and if the server is still running
+    extern pthread_mutex_t runtime;
+
+    // used to check concurrency safely
     extern pthread_mutex_t concurrency;
-    extern pthread_mutex_t running;
 
     void destroy_mtxs(initializer_list<pthread_mutex_t *> mtxs);
 }
 
 namespace Cond {
-    extern pthread_cond_t jobBufferWorker;
-    extern pthread_cond_t jobBufferCommander;
+    extern pthread_cond_t runtimeWorker;
+    extern pthread_cond_t runtimeCommander;
 
     void destroy_conds(initializer_list<pthread_cond_t *> conds);
 }

@@ -68,7 +68,7 @@ void Respondent::stop(int sock, uint32_t jobId, bool exists) {
 void Respondent::poll(int sock) {
     using namespace Executor::internal;
 
-    pthread_mutex_lock(&Mutex::jobBuffer);
+    pthread_mutex_lock(&Mutex::runtime);
 
     for (const auto &job : jobsBuffer) {
         string triplet = job.second->triplet() + '\n';
@@ -81,7 +81,7 @@ void Respondent::poll(int sock) {
         }
     }
 
-    pthread_mutex_unlock(&Mutex::jobBuffer);
+    pthread_mutex_unlock(&Mutex::runtime);
 
     shutdown(sock, SHUT_RDWR);
     close(sock);
