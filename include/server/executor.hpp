@@ -28,7 +28,7 @@ namespace Executor {
         
         string triplet(void) const;
 
-        char * const *c_array() const;
+        char * const *c_array(size_t &size) const;
 
         void terminate(bool serverShutdown);
     };

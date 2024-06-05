@@ -109,6 +109,7 @@ void *workerRoutine(void *arg) {
         stringstream stream { std::ios_base::app | std::ios_base::out };
         char * const* argv;
         int stat;
+        size_t size;
         
         switch (pid = fork()) {
             case -1:
@@ -121,10 +122,18 @@ void *workerRoutine(void *arg) {
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
 
-                argv = j->c_array();
+                argv = j->c_array(size);
 
                 if (execvp(argv[0], argv) == -1) {
                     j->terminate(false);
+                }
+
+                { // handles memory leaks
+                    delete j;
+                    while(size--)
+                        delete argv[size];
+                    delete[] argv;
+                    delete[] workers;
                 }
 
                 exit(EXEC_ERROR);

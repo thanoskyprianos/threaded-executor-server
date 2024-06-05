@@ -47,17 +47,18 @@ string Job::triplet() const {
     return res.str();
 }
 
-char * const *Job::c_array() const {
+// sets size on return
+char * const *Job::c_array(size_t &size) const {
     char **carr = new char*[args.size() + 1];
-    size_t i = 0;
+    size = 0;
 
     for (const auto &str : args) {
         char *buf = new char[str.size() + 1];
         strcpy(buf, str.c_str());
-        carr[i++] = buf;
+        carr[size++] = buf;
     }
 
-    carr[i] = NULL;
+    carr[size++] = NULL;
 
     return const_cast<char * const *>(carr);
 }
