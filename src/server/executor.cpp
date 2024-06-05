@@ -140,8 +140,7 @@ void Executor::stop(int sock, uint32_t jobId) {
         Respondent::stop(sock, jobId, false);
         pthread_mutex_unlock(&Mutex::runtime);
     } else {
-        // move job before removing it from map
-        removed = new Job { std::move(*ptr->second) };
+        removed = ptr->second;
         jobsBuffer.erase(ptr);
 
         pthread_mutex_unlock(&Mutex::runtime);
@@ -167,7 +166,7 @@ Job *Executor::next(void) {
         return nullptr;
     }
 
-    j = new Job {std::move(*(ptr->second))};
+    j = ptr->second;
     jobsBuffer.erase(ptr);
 
     return j;
