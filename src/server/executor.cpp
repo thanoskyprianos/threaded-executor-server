@@ -58,7 +58,7 @@ char * const *Job::c_array(size_t &size) const {
         carr[size++] = buf;
     }
 
-    carr[size++] = NULL;
+    carr[size] = NULL; // sentinel
 
     return const_cast<char * const *>(carr);
 }

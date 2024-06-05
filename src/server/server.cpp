@@ -103,21 +103,16 @@ void *workerRoutine(void *arg) {
 
         // let commanders know there's space
         pthread_cond_broadcast(&Cond::runtimeCommander);
-
-        pid_t pid; 
-        int fd;
-        stringstream stream { std::ios_base::app | std::ios_base::out };
-        char * const* argv;
-        int stat;
-        size_t size;
         
-        switch (pid = fork()) {
-            case -1:
-                close(j->getSocket());
-                break;
-            case 0:
+        pid_t pid = fork();
+        if (pid == -1) {
+            close(j->getSocket());
+        } else if (pid == 0) {
+            { // handles memory leaks
+                int fd;
+                char * const* argv; size_t size;
+                stringstream stream { std::ios_base::app | std::ios_base::out };
                 stream << OUTPUT_DIR << getpid() << ".output";
-
                 fd = open(stream.str().c_str(), O_WRONLY | O_CREAT, 0644);
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
@@ -128,35 +123,38 @@ void *workerRoutine(void *arg) {
                     j->terminate(false);
                 }
 
-                { // handles memory leaks
-                    delete j;
-                    while(size--)
-                        delete argv[size];
-                    delete[] argv;
-                    delete[] workers;
-                }
+                cerr << endl;
+                cerr << "size:" << size << endl;
+                cerr << endl;
 
-                exit(EXEC_ERROR);
-            default:
-                pthread_mutex_lock(&Mutex::concurrency);
-                runningJobs++;
-                pthread_mutex_unlock(&Mutex::concurrency);
-                
-                waitpid(pid, &stat, 0);
-               
-                pthread_mutex_lock(&Mutex::concurrency);
-                runningJobs--;
-                pthread_mutex_unlock(&Mutex::concurrency);
+                delete j;
+                while(size--) delete[] argv[size];
+                delete[] argv;
+                delete[] workers;
+            }
 
-                // send output
-                if (WEXITSTATUS(stat) != EXEC_ERROR)
-                    Respondent::jobOutput(j->getSocket(), pid, j);
+            exit(EXEC_ERROR);
+        } else {
+            int stat;
+            stringstream stream { std::ios_base::app | std::ios_base::out };
 
-                stream.str("");
-                stream << OUTPUT_DIR << pid << ".output";
-                unlink(stream.str().c_str());
+            pthread_mutex_lock(&Mutex::concurrency);
+            runningJobs++;
+            pthread_mutex_unlock(&Mutex::concurrency);
+            
+            waitpid(pid, &stat, 0);
+            
+            pthread_mutex_lock(&Mutex::concurrency);
+            runningJobs--;
+            pthread_mutex_unlock(&Mutex::concurrency);
 
-                break;
+            // send output
+            if (WEXITSTATUS(stat) != EXEC_ERROR)
+                Respondent::jobOutput(j->getSocket(), pid, j);
+
+            stream.str("");
+            stream << OUTPUT_DIR << pid << ".output";
+            unlink(stream.str().c_str());
         }
 
         delete j;        
