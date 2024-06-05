@@ -111,6 +111,8 @@ void Respondent::jobOutput(int sock, int pid, Job *j) {
                 memset(buf, 0, 64);
             }
 
+            delete[] buf;
+
             stream.str("");
             stream << "\n-----job_" << j->getJobId() << " output end------\n";
         }

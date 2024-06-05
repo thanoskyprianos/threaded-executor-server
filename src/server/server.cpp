@@ -158,7 +158,6 @@ void *workerRoutine(void *arg) {
 
 void *commanderRoutine(void *arg) {
     int sock = *(int *)arg;
-    delete (int *)arg;
     
     Job *j;
     uint32_t conc, jobId;
@@ -246,7 +245,10 @@ void terminate (int sig) {
         job.second->terminate(true);
     }
 
-    Respondent::exit(exitSock);
+    delete[] workers;
+
+    if (sig == SIGUSR1) // called by commander
+        Respondent::exit(exitSock);
 
     exit(0);
 }
@@ -303,18 +305,18 @@ int main(int argc, char *argv[]) {
     main_thread = pthread_self();
 
     while (true) {
-        int *commEndpoint = new int();
+        int commEndpoint;
         sockaddr_in client;
         socklen_t clientLen = 0;
         pthread_t commander;
         int errorCode;
 
-        if ((*commEndpoint = accept(passiveEndpoint, (sockaddr *)&client, &clientLen)) == -1) {
+        if ((commEndpoint = accept(passiveEndpoint, (sockaddr *)&client, &clientLen)) == -1) {
             cerr << "Error while accepting connection" << endl;
             continue; // wait for other clients
         }
         
-        if((errorCode = pthread_create(&commander, &attr, &commanderRoutine, (void *)commEndpoint)) != 0) {
+        if((errorCode = pthread_create(&commander, &attr, &commanderRoutine, (void *)&commEndpoint)) != 0) {
             terror((char *)"Error while creating commander thread", errorCode);
             exit(THREAD_ERROR);
         }
