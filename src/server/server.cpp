@@ -109,13 +109,13 @@ void *workerRoutine(void *arg) {
             close(j->getSocket());
         } else if (pid == 0) {
             { // handles memory leaks
-                int fd;
                 char * const* argv; size_t size;
+                
                 stringstream stream { std::ios_base::app | std::ios_base::out };
                 stream << OUTPUT_DIR << getpid() << ".output";
-                fd = open(stream.str().c_str(), O_WRONLY | O_CREAT, 0644);
-                dup2(fd, STDOUT_FILENO);
-                close(fd);
+                
+                int fd = open(stream.str().c_str(), O_WRONLY | O_CREAT, 0644);
+                dup2(fd, STDOUT_FILENO); close(fd); // redirect STDOUT to fd
 
                 argv = j->c_array(size);
 
@@ -128,7 +128,8 @@ void *workerRoutine(void *arg) {
                 cerr << endl;
 
                 delete j;
-                while(size--) delete[] argv[size];
+                while(size--) 
+                    delete[] argv[size];
                 delete[] argv;
                 delete[] workers;
             }
@@ -211,7 +212,7 @@ void *commanderRoutine(void *arg) {
             pthread_cond_broadcast(&Cond::runtimeWorker);
             pthread_cond_broadcast(&Cond::runtimeCommander);
 
-            pthread_kill(main_thread, SIGUSR1);
+            pthread_kill(main_thread, SIGUSR1); // let main thread know it's time to exit
             break;
 
         case ERROR_COMMAND:
@@ -224,7 +225,7 @@ void *commanderRoutine(void *arg) {
 }
 
 void terminate (int sig) {
-    // handle exits yourself
+    // handle exits yourself (ctrl + c)
     if (sig != SIGUSR1) {
         pthread_mutex_lock(&Mutex::runtime);
         Executor::internal::running = false;
@@ -309,7 +310,7 @@ int main(int argc, char *argv[]) {
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-    main_thread = pthread_self();
+    main_thread = pthread_self(); // save it for exit
 
     while (true) {
         int commEndpoint;

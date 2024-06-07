@@ -14,6 +14,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
+// writes headerCode to sock
 bool Requester::internal::headers(int sock, uint32_t headerCode) {
     uint32_t toNet = htonl(headerCode);
     if (write(sock, &toNet, sizeof(uint32_t)) == -1) {
@@ -66,7 +67,7 @@ bool Requester::stop(int sock, char *jobId) {
         return false;
     }
 
-    int jobIdNum = atoi(jobId + 4);
+    int jobIdNum = atoi(jobId + 4); // the number part of the string job_xx
     if(jobIdNum <= 0) {
         return false;
     }
@@ -87,6 +88,8 @@ bool Requester::poll(int sock) {
         return false;
     }
 
+    // no further info
+
     return true;
 }
 
@@ -96,6 +99,8 @@ bool Requester::exit(int sock) {
     if (!headers(sock, EXIT_SERVER)) {
         return false;
     }
+
+    // no further info
 
     return true;
 }

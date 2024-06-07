@@ -85,12 +85,11 @@ size_t Executor::internal::bufferSize = 0; // re-assign it on main !
 map<uint32_t, Job *> Executor::internal::jobsBuffer;
 
 
-// returns job with modified job Id back
+// puts job to buffer after setting its id
 // calls respondent to avoid races from workers
 void Executor::issueJob(int sock, Job *job) {
     using namespace Executor::internal;
 
-    // del
     pthread_mutex_lock(&Mutex::runtime);
         
     while (jobsBuffer.size() == bufferSize && running) {
@@ -115,8 +114,6 @@ void Executor::issueJob(int sock, Job *job) {
     pthread_cond_broadcast(&Cond::runtimeWorker);
 }
 
-
-// returns n back
 void Executor::setConcurrency(int sock, uint32_t n) {
     using namespace Executor::internal;
 
@@ -128,8 +125,6 @@ void Executor::setConcurrency(int sock, uint32_t n) {
     pthread_mutex_unlock(&Mutex::concurrency);
 }
 
-// nullptr on failure
-// removed Job on success
 void Executor::stop(int sock, uint32_t jobId) {
     using namespace Executor::internal;
     Job *removed;
@@ -137,10 +132,10 @@ void Executor::stop(int sock, uint32_t jobId) {
     pthread_mutex_lock(&Mutex::runtime);
 
     auto ptr = jobsBuffer.find(jobId);
-    if (ptr == jobsBuffer.end()) {
+    if (ptr == jobsBuffer.end()) {  // not found
         Respondent::stop(sock, jobId, false);
         pthread_mutex_unlock(&Mutex::runtime);
-    } else {
+    } else {                        // removed
         removed = ptr->second;
         jobsBuffer.erase(ptr);
 
@@ -149,7 +144,7 @@ void Executor::stop(int sock, uint32_t jobId) {
         // let commanders know there is space
         pthread_cond_broadcast(&Cond::runtimeCommander);
 
-        removed->terminate(false);
+        removed->terminate(false); // notify commander that requested job
 
         Respondent::stop(sock, jobId, true);
 
@@ -157,6 +152,7 @@ void Executor::stop(int sock, uint32_t jobId) {
     }
 }
 
+// fifo
 Job *Executor::next(void) {
     using namespace Executor::internal;
 

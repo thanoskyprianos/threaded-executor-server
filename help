@@ -1,4 +1,5 @@
----JOB COMMANDER---
+JOB COMMANDER
+-------------
 
     ./bin/jobCommander [serverName] [portNum] [jobCommanderInputCommands] <args>
 
@@ -15,7 +16,8 @@
         * poll: Polls queued jobs
         * exit: Terminates server, after running jobs have finished
 
----JOB EXECUTOR SERVER---
+JOB EXECUTOR SERVER
+-------------------
 
     ./bin/jobExecutorServer [portNum] [bufferSize] [threadPoolSize]
 

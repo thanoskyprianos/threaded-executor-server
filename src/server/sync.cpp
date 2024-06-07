@@ -6,6 +6,7 @@
 
 using std::initializer_list;
 
+// intialize mutexes
 pthread_mutex_t Mutex::runtime = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Mutex::concurrency = PTHREAD_MUTEX_INITIALIZER;
 
@@ -15,6 +16,7 @@ void Mutex::destroy_mtxs(initializer_list<pthread_mutex_t *> mtxs) {
     }
 }
 
+// initialize cond variables
 pthread_cond_t Cond::runtimeWorker = PTHREAD_COND_INITIALIZER;
 pthread_cond_t Cond::runtimeCommander = PTHREAD_COND_INITIALIZER;
 

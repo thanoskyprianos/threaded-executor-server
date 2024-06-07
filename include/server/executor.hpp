@@ -14,9 +14,9 @@ using std::vector;
 namespace Executor {
     struct Job {
     private:
-        uint32_t jobId;
-        vector<string> args;
-        int sock;
+        uint32_t jobId;      // jobId (assigned after job gets in buffer)
+        vector<string> args; // cli arguments
+        int sock;            // save it to send output later
     public:
         Job(void);
         Job(const vector<string> &&args, int sock);
@@ -28,23 +28,24 @@ namespace Executor {
         
         string triplet(void) const;
 
-        char * const *c_array(size_t &size) const;
+        char * const *c_array(size_t &size) const; // used by execvp
 
+        // send message to commander commander is job did not run
         void terminate(bool serverShutdown);
     };
 
     namespace internal {
-        extern bool running;
-        extern uint32_t runningJobs;
-        extern uint32_t incJobId;
-        extern uint32_t concurrencyLevel;
-        extern size_t bufferSize;
-        extern map<uint32_t, Job *> jobsBuffer;
+        extern bool running;                    // server is running
+        extern uint32_t runningJobs;            // number of running jobs
+        extern uint32_t incJobId;               // increasing job Id
+        extern uint32_t concurrencyLevel;       // concurrency level
+        extern size_t bufferSize;               // size of buffer for jobs
+        extern map<uint32_t, Job *> jobsBuffer; // the buffer
     }
 
-    void issueJob(int sock, Job *job);
-    void setConcurrency(int sock, uint32_t n);
-    void stop(int sock, uint32_t jobId);
+    void issueJob(int sock, Job *job);          // issue job
+    void setConcurrency(int sock, uint32_t n);  // set internal::concurencyLevel
+    void stop(int sock, uint32_t jobId);        // stop queued job with jobId
 
-    Job *next(void);
+    Job *next(void); // next job in buffer (fifo)
 }
