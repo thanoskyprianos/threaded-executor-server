@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
         int concurrency = atoi(argv[4]);
         if (concurrency <= 0) {
-            cerr << "Consurrency should be a positive integer. Conncurrency: " << argv[5] << endl;
+            cerr << "Consurrency should be a positive integer. Conncurrency: " << argv[4] << endl;
             exit(VALUE_ERROR);
         }
 
